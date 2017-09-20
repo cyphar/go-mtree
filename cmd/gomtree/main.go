@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
+	"github.com/openSUSE/umoci/pkg/fseval"
 	"github.com/vbatts/go-mtree"
 )
 
@@ -32,6 +33,7 @@ var (
 	flListUsedKeywords = flag.Bool("list-used", false, "list all the keywords found in a validation manifest")
 	flDebug            = flag.Bool("debug", false, "output debug info to STDERR")
 	flVersion          = flag.Bool("version", false, "display the version of this tool")
+	flRootless         = flag.Bool("rootless", false, "enable unprivileged manifest generation [suse extension]")
 )
 
 func main() {
@@ -52,6 +54,11 @@ func app() error {
 	if *flVersion {
 		fmt.Printf("%s :: %s\n", mtree.AppName, mtree.Version)
 		return nil
+	}
+
+	var fsEval mtree.FsEval
+	if *flRootless {
+		fsEval = fseval.RootlessFsEval
 	}
 
 	// -list-keywords
@@ -244,7 +251,7 @@ func app() error {
 		}
 	} else {
 		// with a root directory
-		stateDh, err = mtree.Walk(rootPath, excludes, currentKeywords, nil)
+		stateDh, err = mtree.Walk(rootPath, excludes, currentKeywords, fsEval)
 		if err != nil {
 			return err
 		}
@@ -254,7 +261,7 @@ func app() error {
 	if *flUpdateAttributes && stateDh != nil {
 		// -u
 		// this comes before the next case, intentionally.
-		result, err := mtree.Update(rootPath, specDh, mtree.DefaultUpdateKeywords, nil)
+		result, err := mtree.Update(rootPath, specDh, mtree.DefaultUpdateKeywords, fsEval)
 		if err != nil {
 			return err
 		}
@@ -264,7 +271,7 @@ func app() error {
 
 		var res []mtree.InodeDelta
 		// only check the keywords that we just updated
-		res, err = mtree.Check(rootPath, specDh, mtree.DefaultUpdateKeywords, nil)
+		res, err = mtree.Check(rootPath, specDh, mtree.DefaultUpdateKeywords, fsEval)
 		if err != nil {
 			return err
 		}
